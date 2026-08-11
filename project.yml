@@ -1,0 +1,68 @@
+# XcodeGenのプロジェクト定義。
+#
+# .xcodeproj はマージ競合の温床（project.pbxproj が巨大な自動生成ファイル）なので、
+# 人が読める定義をこのファイルに置き、プロジェクトは `xcodegen generate` で作る。
+# 生成物は .gitignore している。
+
+name: WhiskyCompass
+options:
+  bundleIdPrefix: app.whiskycompass
+  deploymentTarget:
+    # @Observable と NavigationStack を素直に使うため17を下限にする。
+    # iOS 17未満のシェアは配信開始時点でごく小さい。
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  WhiskyCompass:
+    type: application
+    platform: iOS
+    sources:
+      - path: WhiskyCompass
+    info:
+      path: WhiskyCompass/Info.plist
+      properties:
+        CFBundleDisplayName: Whisky Compass
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # ダーク基調のアプリなので、端末設定に関わらずダークで固定する
+        # （Android版と同じ判断）。
+        UIUserInterfaceStyle: Dark
+        ITSAppUsesNonExemptEncryption: false
+        # iOSは平文HTTPを既定で禁止する。ローカルのDjango開発サーバー
+        # (http://localhost:8000)に繋ぐために必要。
+        # NSAllowsLocalNetworking は「ローカルネットワーク宛てだけ」を許すもので、
+        # 公開ドメインへの平文通信は引き続き禁止されたまま。
+        # ここに NSAllowsArbitraryLoads を足さないこと。
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.whiskycompass
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+      configs:
+        Debug:
+          # シミュレータはMacのネットワークをそのまま使うため、
+          # Androidの 10.0.2.2 のような読み替えが要らず localhost で届く。
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+        Release:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: ""
+
+  WhiskyCompassTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: WhiskyCompassTests
+    dependencies:
+      - target: WhiskyCompass

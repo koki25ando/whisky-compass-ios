@@ -1,0 +1,161 @@
+import Foundation
+
+/// 認証まわり。トークンの保管はAPIClientが持つTokenStoreに集約する。
+@MainActor
+final class AuthRepository {
+
+    static let shared = AuthRepository()
+
+    private let api = APIClient.shared
+
+    func hasSession() async -> Bool {
+        await api.tokenStore.hasSession
+    }
+
+    func logIn(email: String, password: String) async throws {
+        // TokenObtainPairViewはUSERNAME_FIELDを見るため、キーは"username"ではなく"email"。
+        let pair = try await api.postJSON(
+            "api/v1/auth/token/",
+            body: ["email": email, "password": password],
+            as: TokenPairDTO.self
+        )
+        await api.tokenStore.save(access: pair.access, refresh: pair.refresh)
+    }
+
+    func signUp(email: String, displayName: String, password: String) async throws {
+        let response = try await api.postJSON(
+            "api/v1/auth/signup/",
+            body: ["email": email, "display_name": displayName, "password": password],
+            as: SignUpResponseDTO.self
+        )
+        await api.tokenStore.save(access: response.access, refresh: response.refresh)
+    }
+
+    func me() async throws -> UserDTO {
+        try await api.get("api/v1/me/", as: UserDTO.self)
+    }
+
+    func logOut() async {
+        await api.tokenStore.clear()
+    }
+
+    /// アカウントと紐づく全データを削除する。
+    ///
+    /// Google PlayもApp Storeも、アプリ内でアカウントを作れるアプリには
+    /// アプリ内からの削除導線を必須にしている。無効化ではなく実削除で、
+    /// 記録・写真も一緒に消える。
+    func deleteAccount(password: String) async throws {
+        try await api.postJSONIgnoringResponse(
+            "api/v1/me/delete/",
+            body: ["password": password]
+        )
+        // サーバー側でユーザーが消えているので、手元のトークンも捨てる。
+        await api.tokenStore.clear()
+    }
+}
+
+/// チェックインと銘柄の読み書き。
+@MainActor
+final class CheckInRepository {
+
+    static let shared = CheckInRepository()
+
+    private let api = APIClient.shared
+
+    /// 記録が作成・更新・削除されたことを知らせる通知。
+    ///
+    /// 一覧画面はこれを購読して自分で取り直す。画面のライフサイクルや
+    /// 戻り値に頼ると「Homeに戻ったのに消したはずの記録が残る」取りこぼしが起きる
+    /// （Android版で実際に踏んだ問題と同じ対処）。
+    let changes = NotificationCenter.default
+    static let didChange = Notification.Name("WhiskyCompass.checkInsDidChange")
+
+    private func notifyChanged() {
+        changes.post(name: Self.didChange, object: nil)
+    }
+
+    func feed() async throws -> PageDTO<CheckInDTO> {
+        try await api.get("api/v1/check-ins/", as: PageDTO<CheckInDTO>.self)
+    }
+
+    func myCheckIns() async throws -> PageDTO<CheckInDTO> {
+        try await api.get("api/v1/me/check-ins/", as: PageDTO<CheckInDTO>.self)
+    }
+
+    func page(_ url: String) async throws -> PageDTO<CheckInDTO> {
+        try await api.getAbsolute(url, as: PageDTO<CheckInDTO>.self)
+    }
+
+    func checkIn(id: String) async throws -> CheckInDTO {
+        try await api.get("api/v1/check-ins/\(id)/", as: CheckInDTO.self)
+    }
+
+    func stats() async throws -> StatsDTO {
+        try await api.get("api/v1/me/stats/", as: StatsDTO.self)
+    }
+
+    func searchWhiskies(query: String) async throws -> [WhiskyDTO] {
+        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        return try await api.get("api/v1/whiskies/?q=\(encoded)", as: [WhiskyDTO].self)
+    }
+
+    func whisky(id: String) async throws -> WhiskyDetailDTO {
+        try await api.get("api/v1/whiskies/\(id)/", as: WhiskyDetailDTO.self)
+    }
+
+    func whiskyCheckIns(id: String) async throws -> PageDTO<CheckInDTO> {
+        try await api.get("api/v1/whiskies/\(id)/check-ins/", as: PageDTO<CheckInDTO>.self)
+    }
+
+    func delete(id: String) async throws {
+        try await api.delete("api/v1/check-ins/\(id)/")
+        notifyChanged()
+    }
+
+    func save(_ draft: CheckInDraft) async throws -> CheckInDTO {
+        let parts = multipartParts(for: draft)
+        let saved: CheckInDTO
+        if let id = draft.checkInId {
+            saved = try await api.sendMultipart(
+                "api/v1/check-ins/\(id)/", method: "PATCH", parts: parts, as: CheckInDTO.self
+            )
+        } else {
+            saved = try await api.sendMultipart(
+                "api/v1/check-ins/", method: "POST", parts: parts, as: CheckInDTO.self
+            )
+        }
+        notifyChanged()
+        return saved
+    }
+
+    private func multipartParts(for draft: CheckInDraft) -> [MultipartPart] {
+        var parts: [MultipartPart] = [
+            .text("whisky_name", draft.whiskyName.trimmingCharacters(in: .whitespacesAndNewlines)),
+            .text("rating", String(draft.rating)),
+            .text("note", draft.note),
+        ]
+
+        if let drankAt = draft.drankAt {
+            parts.append(.text("drank_at", RelativeTime.iso8601(drankAt)))
+        }
+
+        if draft.recordFlavors {
+            for axis in flavorAxes {
+                parts.append(.text(axis.key, String(draft.flavors[axis.key] ?? 0)))
+            }
+        } else if draft.checkInId != nil {
+            // 編集でオフにした場合は、既にあるスコアを消すよう明示する。
+            parts.append(.text("clear_flavors", "true"))
+        }
+
+        // 同名フィールドの繰り返しで配列になる。
+        for photoId in draft.removedPhotoIds {
+            parts.append(.text("remove_photo_ids", photoId))
+        }
+        for (index, data) in draft.newPhotos.enumerated() {
+            parts.append(.jpeg("photos", filename: "photo_\(index).jpg", data: data))
+        }
+
+        return parts
+    }
+}
