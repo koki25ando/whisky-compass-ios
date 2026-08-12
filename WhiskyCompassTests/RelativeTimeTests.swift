@@ -29,8 +29,13 @@ final class RelativeTimeTests: XCTestCase {
     }
 
     func testAcceptsFractionalSeconds() {
-        // Djangoは秒の小数部を含めて返す場合がある。
-        XCTAssertEqual(RelativeTime.relative("2026-08-11T11:55:00.123456Z", now: now), "5m ago")
+        // Djangoは秒の小数部を含めて返す場合がある。パースできなければ
+        // 入力文字列がそのまま返るので、それで検出できる。
+        let input = "2026-08-11T11:55:00.123456Z"
+        let result = RelativeTime.relative(input, now: now)
+        XCTAssertNotEqual(result, input, "小数秒付きの形式をパースできていない")
+        // 5分ちょうどに0.12秒足りないので切り捨てて4分になる。
+        XCTAssertEqual(result, "4m ago")
     }
 
     func testUnparseableInputIsPassedThrough() {

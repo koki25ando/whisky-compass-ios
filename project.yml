@@ -64,5 +64,21 @@ targets:
     platform: iOS
     sources:
       - path: WhiskyCompassTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: WhiskyCompass
+
+  # 画面を実際に操作して確認するためのUIテスト。
+  # ローカルのDjango(localhost:8000)が起動していることが前提。
+  WhiskyCompassUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: WhiskyCompassUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: WhiskyCompass

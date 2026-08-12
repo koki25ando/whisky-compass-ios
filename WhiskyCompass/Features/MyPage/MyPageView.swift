@@ -96,11 +96,16 @@ struct MyPageView: View {
 
             // アカウント削除の導線。App Store も Google Play も「アプリ内から削除できること」を
             // 必須にしているため、埋もれた場所ではなくプロフィール直下に置く。
-            Button("Delete account", role: .destructive) {
+            Button {
                 profile.deleteError = nil
                 deletingAccount = true
+            } label: {
+                // role: .destructive の既定色はiOSの赤で、Web/Android版の
+                // 警告色（#E08A8A）から浮くため自前で指定する。
+                Text("Delete account")
+                    .font(.caption)
+                    .foregroundStyle(Palette.danger)
             }
-            .font(.caption)
         }
         .padding(.bottom, 8)
     }

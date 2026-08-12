@@ -81,7 +81,7 @@ struct CheckInList: View {
                 }
 
                 if viewModel.checkIns.isEmpty {
-                    EmptyHint(title: emptyTitle, body: emptyBody)
+                    EmptyHint(title: emptyTitle, message: emptyBody)
                 }
 
                 ForEach(viewModel.checkIns) { checkIn in

@@ -101,12 +101,13 @@ struct ErrorState: View {
 /// 一覧が空のときの案内。
 struct EmptyHint: View {
     let title: String
-    let body: String
+    /// `body` という名前は `View.body` と衝突するので使えない。
+    let message: String
 
     var body: some View {
         VStack(spacing: 6) {
             Text(title).font(.headline).foregroundStyle(Palette.cream)
-            Text(body)
+            Text(message)
                 .font(.subheadline)
                 .foregroundStyle(Palette.muted)
                 .multilineTextAlignment(.center)

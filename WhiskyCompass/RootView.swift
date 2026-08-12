@@ -41,6 +41,9 @@ struct RootView: View {
                 )
 
             case .some(true):
+                // tintはNavigationStackに掛ける。appBackground()の中に置いても
+                // ツールバー（戻る・編集・削除）はナビゲーションバーが描くため届かず、
+                // iOS既定の青のままになる。
                 NavigationStack(path: $path) {
                     HomeView(onOpenMyPage: { path.append(Route.myPage) })
                         .navigationDestination(for: Route.self) { route in
@@ -57,6 +60,7 @@ struct RootView: View {
                             }
                         }
                 }
+                .tint(Palette.gold)
             }
         }
         .task { session.refresh() }

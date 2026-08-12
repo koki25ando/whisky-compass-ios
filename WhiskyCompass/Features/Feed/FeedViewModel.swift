@@ -1,5 +1,22 @@
 import Foundation
 
+/// NotificationCenterの購読解除をオブジェクトの寿命に紐づけるための入れ物。
+///
+/// `deinit`はnonisolatedなので、`@MainActor`なViewModelのプロパティには触れない。
+/// トークンをこのクラスに持たせ、ViewModelが解放されたら一緒に解放されることで
+/// 解除する（ブロック購読は明示的に外さないと登録が残り続けるため）。
+private final class NotificationObserverToken {
+    private let token: NSObjectProtocol
+
+    init(_ token: NSObjectProtocol) {
+        self.token = token
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(token)
+    }
+}
+
 /// チェックイン一覧の取得とページング。
 ///
 /// ホームとマイページで同じものを使い、取得元だけを`source`で切り替える。
@@ -25,26 +42,24 @@ final class CheckInListViewModel {
 
     private let source: Source
     private let repository = CheckInRepository.shared
-    private var changeObserver: NSObjectProtocol?
+    // varかつオプショナルにしておく。initの時点で全プロパティが初期化済みになり、
+    // 購読ブロックから self を弱参照でキャプチャできる。
+    private var changeObserver: NotificationObserverToken?
 
     init(source: Source) {
         self.source = source
         // 記録が作成・更新・削除されたら取り直す。画面のライフサイクルに頼ると
         // 「戻ってきたのに消したはずの記録が残る」取りこぼしが起きる
         // （Android版で実際に踏んだ問題と同じ対処）。
-        changeObserver = NotificationCenter.default.addObserver(
-            forName: CheckInRepository.didChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
-        }
-    }
-
-    deinit {
-        if let changeObserver {
-            NotificationCenter.default.removeObserver(changeObserver)
-        }
+        changeObserver = NotificationObserverToken(
+            NotificationCenter.default.addObserver(
+                forName: CheckInRepository.didChange,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in self?.refresh() }
+            }
+        )
     }
 
     func refresh() {

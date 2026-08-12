@@ -3,32 +3,61 @@
 Whisky Compass の iOS アプリ。Swift + SwiftUI。
 バックエンドは `whisky-compass-web` の `/api/v1/` を叩く（Android版と同じAPI・同じDB）。
 
-## ⚠️ 現在の状態：未ビルド
+## 現在の状態：シミュレータで動作確認済み
 
-**このプロジェクトは一度もビルドされていません。** 開発機の Xcode.app が
-4.0GB しかなく（完全版は15GB以上）、`xcodebuild` がライブラリの読み込みに失敗する
-状態だったため、コンパイル検証ができていません。
+- ✅ ビルド成功（iPhoneSimulator SDK 26.5 / デプロイターゲット iOS 17.0）
+- ✅ ユニットテスト16件・UIテスト3件、全部パス
+- ✅ シミュレータ（iPhone 16 Pro / iOS 18.1）で実際に操作して確認：
+  ログイン → ホーム → 記録の詳細（レーダーチャート）→ 銘柄ページ →
+  マイページ（統計・アカウント削除の導線）→ 新規作成画面
+- ⏳ 実機での確認はまだ
 
-済んでいるのは以下だけです：
+UIテストは `WhiskyCompassUITests/SmokeUITests.swift`。**ローカルのDjangoが
+起動していることが前提**なので、CIに載せるならバックエンドの起動もセットで必要。
 
-- 全24ファイルの **構文チェック**（`swiftc -parse`、エラーなし）
-- `xcodegen generate` によるプロジェクト生成
+```bash
+xcodebuild test -project WhiskyCompass.xcodeproj -scheme WhiskyCompass \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro'
+```
 
-**型エラー・API不一致は残っている前提**で、最初のビルドに臨んでください。
-Android版も同じ経緯（環境が揃う前にコードを書いた）でしたが、初回ビルドは
-インポート漏れ2件の修正で通りました。
+### 実装中に見つけて直したもの
+
+1. `EmptyHint` の格納プロパティ名 `body` が `View.body` と衝突（`message`に改名）
+2. `@MainActor` クラスの `deinit` から NotificationCenter の購読解除ができない
+   （`deinit` は nonisolated）。解除用トークンを別オブジェクトに持たせて解決
+3. `@Observable` はクラス継承と噛み合わず、サブクラスのプロパティが監視されない。
+   継承をやめて `CheckInListViewModel(source:)` + `ProfileViewModel` の構成に変更
+4. ツールバー（戻る・編集・削除）がiOS既定の青。`tint`は`NavigationStack`に
+   掛けないとナビゲーションバーに届かない
+5. `role: .destructive` の既定の赤が Web/Android の警告色から浮いていた
 
 ### Xcode を使えるようにする
 
-```bash
-# 1. Xcode のインストールを完了させる（App Store で「再開」または再インストール）
-du -sh /Applications/Xcode.app     # 15GB以上あればOK
+`Xcode.app` 本体（26.6）は完全に入っている。問題は**その外側にある共有コンポーネントが
+古いまま**なこと。
 
-# 2. コマンドラインの向き先を Xcode に切り替える（要パスワード）
+```
+/Applications/Xcode.app                         26.6（2026-06）
+/Library/Developer/PrivateFrameworks/CoreDevice 397.24（2024-11）← 古い
+```
+
+このズレが `xcodebuild` 起動時の
+`Symbol not found: _XPCTypeBool ... CoreDevice.framework` の原因。
+Xcodeを新しくしたあと、初回起動時のコンポーネントインストールが済んでいないと起きる。
+
+```bash
+# 1. Xcode.app を Finder から一度起動して「追加コンポーネント」を入れる
+#    （ターミナルなら以下。どちらも管理者パスワードが必要）
 sudo xcode-select -s /Applications/Xcode.app
+sudo xcodebuild -runFirstLaunch
+
+# 2. iOSシミュレータのランタイムを入れる
+#    Xcode 16以降は本体と別ダウンロード。7〜10GB程度。
+xcodebuild -downloadPlatform iOS
 
 # 3. 確認
 xcodebuild -version
+xcrun simctl list devices available | grep iPhone
 ```
 
 ## セットアップ
