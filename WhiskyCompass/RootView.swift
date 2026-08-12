@@ -24,8 +24,24 @@ struct RootView: View {
     @State private var session = SessionModel()
     @State private var path = NavigationPath()
     @State private var authMode: AuthView.Mode = .logIn
+    // 法定飲酒年齢の確認。ログイン画面より前に置くことで、新規登録・ログインの
+    // どちらの経路でも必ず通る。
+    @State private var ageConfirmed = AgeGate.hasConfirmed
+        || ProcessInfo.processInfo.arguments.contains("-uitest-skip-age-gate")
 
     var body: some View {
+        Group {
+            if !ageConfirmed {
+                AgeGateView { ageConfirmed = true }
+            } else {
+                authenticatedBody
+            }
+        }
+        .task { session.refresh() }
+    }
+
+    @ViewBuilder
+    private var authenticatedBody: some View {
         Group {
             switch session.hasSession {
             case .none:
@@ -63,6 +79,5 @@ struct RootView: View {
                 .tint(Palette.gold)
             }
         }
-        .task { session.refresh() }
     }
 }

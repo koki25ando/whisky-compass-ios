@@ -157,16 +157,54 @@ WhiskyCompass/
 
 ## App Store 提出に向けて
 
-Android版で用意したものがそのまま使えます。
+### 実装側で済んでいること
 
 | 要件 | 状態 |
 |---|---|
-| アプリ内アカウント削除（Appleも2022年から必須） | ✅ 実装済み（マイページ） |
+| アプリ内アカウント削除（Appleも2022年から必須） | ✅ マイページ |
+| **法定飲酒年齢の確認** | ✅ 初回起動時（日本20歳／アメリカ21歳をリージョンで出し分け）＋登録画面にも明示 |
 | プライバシーポリシーURL | ✅ https://whiskycompass.app/privacy/ |
 | アカウント削除の公開URL | ✅ https://whiskycompass.app/account-deletion/ |
-| 年齢レーティング | アルコールへの言及があるため17+相当 |
-| Apple Developer Program | ❌ 未加入（$99/年） |
-| App Privacy（栄養ラベル） | ❌ 未記入 |
+| プライバシーマニフェスト | ✅ `PrivacyInfo.xcprivacy`（UserDefaults の理由 CA92.1 を申告） |
+| 輸出コンプライアンス | ✅ `ITSAppUsesNonExemptEncryption: false` |
+| アプリアイコン | ✅ 1024x1024・アルファなし |
+| ATS例外がReleaseに入らない | ✅ Info.plist を構成ごとに分離 |
+| バージョン | ✅ 1.0.0 (build 1) |
+
+### ⚠️ アーカイブ前に必ずやること
+
+```yaml
+# project.yml
+DEVELOPMENT_TEAM: ""   # ← ここが空だと署名できない
+```
+
+値は developer.apple.com/account → Membership details の **Team ID（10文字）**。
+秘密情報ではないのでコミットして構わない。設定後は `xcodegen generate` を実行する。
+
+あわせて Developer ポータルで **Bundle ID `app.whiskycompass` の登録**が必要
+（Google Play と違い事前登録が要る）。
+
+### 年齢確認について
+
+`Core/Auth/AgeGate.swift`。配信対象が日本とアメリカのみで法定年齢が違う（20歳／21歳）ため、
+`Locale.current.region` で出し分ける。**判定できない場合は21歳に倒す**（緩いほうへ倒すと
+21歳の国で20歳の表示が出てしまうため）。
+
+確認結果は UserDefaults に「確認したか・何歳基準か・いつか」を保存する。
+これが `PrivacyInfo.xcprivacy` で UserDefaults を申告している理由。
+
+⚠️ **現状この確認はiOSアプリ内で完結しており、サーバーには記録していない。**
+Android版・Web版には未実装。同じ年齢確認を全プラットフォームに入れるなら、
+`accounts.User` に確認日時を持たせてAPIで受けるのが本筋。
+
+### App Store Connect 側で設定するもの
+
+- **配信対象国を日本とアメリカに限定**（アルコール関連アプリを制限する国があるため）
+- 年齢レーティング → アルコールへの言及があるため **17+**
+- App Privacy（栄養ラベル）→ `PrivacyInfo.xcprivacy` と内容を揃える
+- スクリーンショット・説明文・キーワード・サポートURL
+- **審査用デモアカウント**（App Review Information）
+  → 本番の `appreview@whiskycompass.app`。**このアカウントを削除しないこと**
 
 **Google Play と違い、公開前の必須テスト期間はありません**（12人×14日のような要件は
 Apple にはない）。TestFlight は任意で、いきなり審査に出せます。

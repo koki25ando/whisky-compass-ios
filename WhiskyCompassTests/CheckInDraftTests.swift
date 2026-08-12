@@ -73,3 +73,21 @@ final class MultipartTests: XCTestCase {
         XCTAssertTrue(text.contains("Content-Type: image/jpeg"))
     }
 }
+
+/// 法定飲酒年齢の判定。配信対象は日本とアメリカのみ。
+final class AgeGateTests: XCTestCase {
+
+    func testJapanIsTwenty() {
+        XCTAssertEqual(AgeGate.minimumAge(for: "JP"), 20)
+    }
+
+    func testUnitedStatesIsTwentyOne() {
+        XCTAssertEqual(AgeGate.minimumAge(for: "US"), 21)
+    }
+
+    func testUnknownRegionFallsBackToTheStricterAge() {
+        // 判定できないときに緩いほうへ倒すと、21歳の国で20歳の表示が出てしまう。
+        XCTAssertEqual(AgeGate.minimumAge(for: nil), 21)
+        XCTAssertEqual(AgeGate.minimumAge(for: "GB"), 21)
+    }
+}

@@ -124,6 +124,16 @@ struct AuthView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(mode == .logIn ? !viewModel.canSubmitLogin : !viewModel.canSubmitSignUp)
 
+                // 登録時にも法定年齢であることを明示する（初回起動の年齢確認に加えて）。
+                if mode == .signUp {
+                    Text("By signing up you confirm that you are of legal drinking age "
+                         + "in the country where you live.")
+                        .font(.caption)
+                        .foregroundStyle(Palette.muted)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                }
+
                 Button(mode == .logIn
                        ? "Don't have an account? Sign up"
                        : "Already have an account? Log in",

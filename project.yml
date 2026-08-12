@@ -16,9 +16,12 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.9"
+    # ⚠️ アーカイブ前に必ず設定すること。空のままだと署名できない。
+    # 値は developer.apple.com/account → Membership details の Team ID（10文字）。
+    # 秘密情報ではないのでコミットして構わない。
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
 
 targets:
@@ -27,25 +30,8 @@ targets:
     platform: iOS
     sources:
       - path: WhiskyCompass
-    info:
-      path: WhiskyCompass/Info.plist
-      properties:
-        CFBundleDisplayName: Whisky Compass
-        UILaunchScreen:
-          UIColorName: LaunchBackground
-        UISupportedInterfaceOrientations:
-          - UIInterfaceOrientationPortrait
-        # ダーク基調のアプリなので、端末設定に関わらずダークで固定する
-        # （Android版と同じ判断）。
-        UIUserInterfaceStyle: Dark
-        ITSAppUsesNonExemptEncryption: false
-        # iOSは平文HTTPを既定で禁止する。ローカルのDjango開発サーバー
-        # (http://localhost:8000)に繋ぐために必要。
-        # NSAllowsLocalNetworking は「ローカルネットワーク宛てだけ」を許すもので、
-        # 公開ドメインへの平文通信は引き続き禁止されたまま。
-        # ここに NSAllowsArbitraryLoads を足さないこと。
-        NSAppTransportSecurity:
-          NSAllowsLocalNetworking: true
+    # Info.plist は自動生成せず、構成ごとに切り替える（下の INFOPLIST_FILE）。
+    # 開発用の平文HTTP例外をReleaseビルドに持ち込まないため。
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.whiskycompass
@@ -56,8 +42,11 @@ targets:
           # シミュレータはMacのネットワークをそのまま使うため、
           # Androidの 10.0.2.2 のような読み替えが要らず localhost で届く。
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+          # 平文HTTPの例外を持つのはこちらだけ。
+          INFOPLIST_FILE: WhiskyCompass/Info-Debug.plist
         Release:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: ""
+          INFOPLIST_FILE: WhiskyCompass/Info.plist
 
   WhiskyCompassTests:
     type: bundle.unit-test

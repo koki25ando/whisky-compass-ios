@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Release用。**平文HTTPの例外を含まない。**
+  Debug専用。Release用は Info.plist（ATS例外なし）。
 
-  開発用の例外は Info-Debug.plist 側にだけ書き、project.yml が構成ごとに
-  INFOPLIST_FILE を切り替える。両方を手で保守する必要があるので、
-  ATS以外のキーを足すときは**両方のファイルに入れること**。
+  NSAllowsLocalNetworking はローカルのDjango開発サーバー(http://localhost:8000)に
+  繋ぐために要る。ローカルネットワーク宛てのみを許すもので、
+  **このファイルはReleaseビルドに含まれない**（project.yml が構成ごとに切り替える）。
+  Android版で network_security_config を src/debug/ に置いたのと同じ意図。
 -->
 <plist version="1.0">
 <dict>
@@ -40,5 +41,10 @@
 	</array>
 	<key>UIUserInterfaceStyle</key>
 	<string>Dark</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

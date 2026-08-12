@@ -12,6 +12,9 @@ final class SmokeUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
+        // 年齢確認は初回起動時にしか出ない。既存のテストは本題ではないので飛ばす
+        // （年齢確認そのものは AgeGateUITests で検証する）。
+        app.launchArguments = ["-uitest-skip-age-gate"]
         app.launch()
     }
 
@@ -114,5 +117,57 @@ final class SmokeUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+}
+
+
+/// 法定飲酒年齢の確認。アルコールを扱うアプリとして審査で必ず見られる導線。
+final class AgeGateUITests: XCTestCase {
+
+    /// 「未成年」を選んだら、そこから先に進めないこと。
+    func testUnderageUserIsBlocked() throws {
+        let app = XCUIApplication()
+        // 起動引数を付けない＝年齢確認が出る状態。
+        app.launchArguments = ["-uitest-reset-age-gate"]
+        app.launch()
+
+        let confirm = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "I am ")
+        ).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10), "年齢確認が表示されない")
+
+        let decline = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "I am under")
+        ).firstMatch
+        XCTAssertTrue(decline.exists, "未成年を選ぶ導線が無い")
+        decline.tap()
+
+        // 先に進む手段が残っていないこと。
+        XCTAssertTrue(
+            app.staticTexts.matching(
+                NSPredicate(format: "label CONTAINS[c] %@", "Come back")
+            ).firstMatch.waitForExistence(timeout: 5),
+            "未成年と答えたのにブロックされていない"
+        )
+        XCTAssertFalse(app.textFields["Email"].exists, "ログイン画面に到達できてしまっている")
+    }
+
+    /// 確認すればログイン画面に進めること。
+    func testConfirmingAgeLetsYouThrough() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-uitest-reset-age-gate"]
+        app.launch()
+
+        let confirm = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "I am ")
+        ).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10))
+        confirm.tap()
+
+        XCTAssertTrue(
+            app.textFields["Email"].waitForExistence(timeout: 10)
+                || app.navigationBars["Home"].waitForExistence(timeout: 10),
+            "年齢確認後に先へ進めない"
+        )
     }
 }
