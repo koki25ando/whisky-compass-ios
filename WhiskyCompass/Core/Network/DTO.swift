@@ -83,6 +83,13 @@ struct CheckInDTO: Decodable, Identifiable, Equatable {
 }
 
 /// DRFのCursorPaginationの応答形。`next`はカーソル付きの絶対URL。
+struct BlockedUserDTO: Decodable, Identifiable, Equatable {
+    let userId: String
+    let displayName: String
+
+    var id: String { userId }
+}
+
 struct PageDTO<T: Decodable>: Decodable {
     let next: String?
     let previous: String?

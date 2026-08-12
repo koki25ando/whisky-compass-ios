@@ -94,6 +94,20 @@ struct MyPageView: View {
                 )
             }
 
+            // ブロック中の相手を見直せる場所。ブロックできて解除できないと
+            // 一方通行になるため、必ず辿れるところに置く。
+            NavigationLink(value: Route.blockedAccounts) {
+                HStack {
+                    Text("Blocked accounts")
+                        .font(.subheadline).foregroundStyle(Palette.cream)
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(Palette.muted)
+                }
+                .padding(14)
+                .background(Palette.surface, in: RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+
             // アカウント削除の導線。App Store も Google Play も「アプリ内から削除できること」を
             // 必須にしているため、埋もれた場所ではなくプロフィール直下に置く。
             Button {

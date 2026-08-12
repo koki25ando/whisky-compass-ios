@@ -78,7 +78,7 @@ final class CheckInRepository {
     let changes = NotificationCenter.default
     static let didChange = Notification.Name("WhiskyCompass.checkInsDidChange")
 
-    private func notifyChanged() {
+    func notifyChanged() {
         changes.post(name: Self.didChange, object: nil)
     }
 
@@ -165,5 +165,61 @@ final class CheckInRepository {
         }
 
         return parts
+    }
+}
+
+/// 通報とブロック。
+///
+/// App Reviewガイドライン1.2は、他人の投稿を表示するアプリに
+/// 「通報できること」「相手をブロックできること」を必須にしている。
+/// 実際の絞り込みはサーバー側（`CheckIn.objects.visible_to()`）が行うので、
+/// ここは送るだけ。ブロック後は一覧を取り直す必要があるため変更通知を出す。
+@MainActor
+final class ModerationRepository {
+
+    static let shared = ModerationRepository()
+
+    private let api = APIClient.shared
+
+    func report(checkInId: String, reason: ReportReason, note: String) async throws {
+        try await api.postJSONIgnoringResponse(
+            "api/v1/check-ins/\(checkInId)/report/",
+            body: ["reason": reason.rawValue, "note": note]
+        )
+    }
+
+    func block(userId: String) async throws {
+        try await api.postJSONIgnoringResponse("api/v1/users/\(userId)/block/", body: [:])
+        CheckInRepository.shared.notifyChanged()
+    }
+
+    func unblock(userId: String) async throws {
+        try await api.delete("api/v1/users/\(userId)/block/")
+        CheckInRepository.shared.notifyChanged()
+    }
+
+    func blockedUsers() async throws -> [BlockedUserDTO] {
+        try await api.get("api/v1/me/blocks/", as: [BlockedUserDTO].self)
+    }
+}
+
+/// 通報理由。サーバーの`Report.Reason`と値を一致させること。
+enum ReportReason: String, CaseIterable, Identifiable {
+    case spam
+    case offensive
+    case harassment
+    case illegal
+    case other
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .spam: "Spam or advertising"
+        case .offensive: "Offensive or inappropriate"
+        case .harassment: "Harassment or hate"
+        case .illegal: "Illegal or unsafe"
+        case .other: "Something else"
+        }
     }
 }

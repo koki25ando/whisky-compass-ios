@@ -5,6 +5,7 @@ enum Route: Hashable {
     case checkIn(String)
     case whisky(String)
     case myPage
+    case blockedAccounts
 }
 
 @Observable
@@ -68,6 +69,8 @@ struct RootView: View {
                                 CheckInDetailView(checkInId: id)
                             case .whisky(let id):
                                 WhiskyDetailView(whiskyId: id)
+                            case .blockedAccounts:
+                                BlockedAccountsView()
                             case .myPage:
                                 MyPageView(onLoggedOut: {
                                     path = NavigationPath()

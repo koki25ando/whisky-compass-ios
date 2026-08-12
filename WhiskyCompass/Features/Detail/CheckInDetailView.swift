@@ -7,8 +7,10 @@ final class CheckInDetailViewModel {
     var isLoading = true
     var error: String?
     var isDeleted = false
+    var isBlocked = false
 
     private let repository = CheckInRepository.shared
+    private let moderation = ModerationRepository.shared
     private let checkInId: String
 
     init(checkInId: String) {
@@ -27,6 +29,21 @@ final class CheckInDetailViewModel {
                 self.error = APIError.unknown.message
             }
             isLoading = false
+        }
+    }
+
+    /// この記録の投稿者をブロックする。ブロック後はフィードからも詳細からも消える。
+    func blockAuthor() {
+        guard let userId = checkIn?.user.userId else { return }
+        Task { @MainActor in
+            do {
+                try await moderation.block(userId: userId)
+                isBlocked = true
+            } catch let apiError as APIError {
+                error = apiError.message
+            } catch {
+                self.error = APIError.unknown.message
+            }
         }
     }
 
@@ -51,6 +68,9 @@ struct CheckInDetailView: View {
     @State private var confirmingDelete = false
     @State private var editing = false
     @State private var zoomedURL: String?
+    @State private var reporting = false
+    @State private var confirmingBlock = false
+    @State private var toast: String?
     @Environment(\.dismiss) private var dismiss
 
     init(checkInId: String) {
@@ -83,6 +103,19 @@ struct CheckInDetailView: View {
                     Button { confirmingDelete = true } label: { Image(systemName: "trash") }
                         .accessibilityLabel("Delete")
                 }
+            } else if viewModel.checkIn != nil {
+                // 他人の記録には通報とブロックを出す（App Reviewガイドライン1.2）。
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Report this check-in", systemImage: "flag") { reporting = true }
+                        Button("Block this person", systemImage: "hand.raised", role: .destructive) {
+                            confirmingBlock = true
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("More")
+                }
             }
         }
         .alert("Delete this check-in?", isPresented: $confirmingDelete) {
@@ -90,6 +123,24 @@ struct CheckInDetailView: View {
             Button("Delete", role: .destructive) { viewModel.delete() }
         } message: {
             Text("This can't be undone.")
+        }
+        .alert("Block this person?", isPresented: $confirmingBlock) {
+            Button("Cancel", role: .cancel) {}
+            Button("Block", role: .destructive) { viewModel.blockAuthor() }
+        } message: {
+            Text("You won't see their check-ins anymore. They aren't told about this. You can undo it from My page.")
+        }
+        .sheet(isPresented: $reporting) {
+            ReportSheet(checkInId: checkInId) { message in toast = message }
+        }
+        .alert("Reported", isPresented: Binding(get: { toast != nil }, set: { if !$0 { toast = nil } })) {
+            Button("OK") { toast = nil }
+        } message: {
+            Text(toast ?? "")
+        }
+        .onChange(of: viewModel.isBlocked) { _, blocked in
+            // ブロックしたら相手の記録はもう見えない。開いたままにせず前の画面へ戻す。
+            if blocked { dismiss() }
         }
         .sheet(isPresented: $editing) {
             NavigationStack {
