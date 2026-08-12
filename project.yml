@@ -19,7 +19,7 @@ settings:
     # ⚠️ アーカイブ前に必ず設定すること。空のままだと署名できない。
     # 値は developer.apple.com/account → Membership details の Team ID（10文字）。
     # 秘密情報ではないのでコミットして構わない。
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: "3ZMWCRAFAG"
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
