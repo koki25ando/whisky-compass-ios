@@ -52,9 +52,11 @@ actor APIClient {
     }
 
     @discardableResult
+    /// 本文は `[String: Any]`。真偽値・数値をJSONの型のまま送るため
+    /// （文字列にするとサーバー側の型変換に依存してしまう）。
     func postJSON<T: Decodable>(
         _ path: String,
-        body: [String: String],
+        body: [String: Any],
         as type: T.Type
     ) async throws -> T {
         var request = self.request(path: path, method: "POST")
@@ -64,7 +66,7 @@ actor APIClient {
     }
 
     /// 応答本文を使わないPOST（アカウント削除など204が返るもの）。
-    func postJSONIgnoringResponse(_ path: String, body: [String: String]) async throws {
+    func postJSONIgnoringResponse(_ path: String, body: [String: Any]) async throws {
         var request = self.request(path: path, method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

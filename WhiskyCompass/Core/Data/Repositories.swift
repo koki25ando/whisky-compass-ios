@@ -23,9 +23,17 @@ final class AuthRepository {
     }
 
     func signUp(email: String, displayName: String, password: String) async throws {
+        // 年齢確認は起動時に済ませてある。サーバー側にも記録を残すため一緒に送る
+        // （APIを直接叩けば確認なしで登録できる、という穴を塞ぐためサーバーでも必須）。
         let response = try await api.postJSON(
             "api/v1/auth/signup/",
-            body: ["email": email, "display_name": displayName, "password": password],
+            body: [
+                "email": email,
+                "display_name": displayName,
+                "password": password,
+                "age_confirmed": true,
+                "age_confirmed_minimum": AgeGate.minimumAge,
+            ],
             as: SignUpResponseDTO.self
         )
         await api.tokenStore.save(access: response.access, refresh: response.refresh)
